@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cathe Role Game</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
+  <style>
+    html, body {
+      width: 100vw; height: 100vh; margin:0; padding:0;
+      overflow: hidden;
+      background: #fff;
+      font-family: 'Montserrat', Arial, sans-serif;
+      cursor: none;
+    }
+    .custom-cursor {
+      position: fixed; left:0; top:0;
+      z-index: 10000; pointer-events:none;
+      font-size:22px; font-family:'Montserrat', monospace;
+      color: #7b1fa2;
+      user-select: none;
+      transition: transform 0.05s linear;
+    }
+    #floating-images {
+      position: fixed; left:0; top:0;
+      width:100vw; height:100vh; pointer-events:none; z-index:10;
+    }
+    .floating-img {
+      position: absolute; width: 70px; height:70px;
+      user-select: none; opacity:1;
+      object-fit: contain;
+      aspect-ratio: 1 / 1;
+    }
+    .center-box {
+      position: absolute; left:50%; top:35%;
+      transform: translate(-50%,-50%);
+      z-index: 20; width: 90vw; max-width:500px;
+      text-align:center; pointer-events:auto;
+    }
+    .center-box h1 {
+      color: #511580; font-size:2.2rem; margin-bottom:12px; padding:10px 0 0;
+    }
+    .center-box p {
+      color: #9370b5; font-size:1.05rem; margin-bottom:22px; padding-bottom:10px;
+    }
+    .btn {
+      padding: 17px 43px;
+      background: linear-gradient(90deg, #9427fb 0%, #7B1FA2 100%);
+      color: #fff;
+      border: none; border-radius: 32px;
+      font-size: 1.2rem; font-family:'Montserrat', Arial, sans-serif;
+      cursor: pointer; transition: background .22s;
+      box-shadow: 0 3px 24px #8f36bc33;
+      outline: none; margin-top: 20px; margin-bottom:5px;
+    }
+    .btn:hover {
+      background: linear-gradient(90deg,#af67e5 0%, #a38bcf 100%);
+      filter: brightness(1.11);
+    }
+    #game-scene {
+      display:none; position:fixed; left:0; top:0;
+      width:100vw; height:100vh; background:#fff; z-index:30;
+    }
+    #timer {
+      position: absolute; width:100%; left:0; top:25px;
+      text-align:center; font-size:2rem; color:#7B1FA2;
+      font-family:'Montserrat', Arial, sans-serif; letter-spacing:2px;
+    }
+    #cathe-img {
+      display: block; width: 110px; height: 110px;
+      object-fit: contain; aspect-ratio: 1 / 1;
+      position: absolute; z-index:50;
+      cursor: pointer; pointer-events: none;
+    }
+    .fly-text {
+      position: absolute; font-size:1.1rem;
+      font-family: 'Montserrat', monospace;
+      color: #6800ab; font-weight:bold;
+      pointer-events:none; opacity:0;
+      animation: flyUpFade 1.15s cubic-bezier(.36,.48,.54,.98) forwards;
+      white-space:pre; z-index:99; left:0; top:0;
+    }
+    @keyframes flyUpFade {
+      0% { opacity:1; transform:translateY(0px);}
+      70% { opacity:0.87; transform:translateY(-24px);}
+      100% { opacity:0; transform:translateY(-50px);}
+    }
+    #gameover-modal {
+      display:none; position:fixed; left:0; top:0;
+      width:100vw; height:100vh;
+      background: rgba(255,255,255,0.78); z-index:222;
+    }
+    .modal-content {
+      position: absolute; left:50%; top:50%;
+      transform: translate(-50%,-50%);
+      background:#fff; box-shadow:0 0 60px #d1c4e930;
+      padding:38px 38px 30px; border-radius:36px; text-align:center; min-width:300px;
+    }
+    .modal-content h2 {
+      font-size:1.8rem; color:#7b1fa2; margin-bottom:20px;
+    }
+    .modal-content .btn {
+      margin-top:18px;
+    }
+  </style>
+</head>
+<body>
+  <div id="floating-images"></div>
+  <div class="center-box" id="start-box">
+    <h1>./ Welcome to Catch Grad</h1>
+    <p>./ Try to catch the Role! If you catch it, maybe you'll get a role in Discord (maybe, lol).</p>
+    <p>./ Rules: you have only one minute and an infinite number of attempts.</p>
+    <button id="start-btn" class="btn">Start</button>
+  </div>
+
+  <div id="game-scene">
+    <div id="timer"></div>
+    <img src="2.png" id="cathe-img" draggable="false" alt="catch me!">
+  </div>
+
+  <div id="gameover-modal">
+    <div class="modal-content">
+      <h2>./ Game Over!</h2>
+      <p>./ Time is up. Try again?</p>
+      <button id="restart-btn" class="btn">Restart</button>
+    </div>
+  </div>
+
+  <div class="custom-cursor" id="cursor">./</div>
+  <script>
+    const cursor = document.getElementById('cursor');
+    document.addEventListener('mousemove', e => {
+      cursor.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+    });
+
+    function rand(min,max){ return Math.random()*(max-min)+min; }
+    function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+    const PHRASES = [
+      './ Almost got it.',
+      './ Got it?',
+      "./ You won't get it, lol.",
+      './ You want it so badly.',
+      './ Loser.',
+      "./ You're bad at this.",
+      './ How are you going to catch me?',
+      './ GRAD!',
+      "./ Didn't get it again?",
+      './ lol',
+      './ Try again.',
+      './ Bad.',
+      "./ It's impossible."
+    ];
+
+    const floatingImages = document.getElementById('floating-images');
+    const NUM_IMAGES = 104;
+    let floats = [];
+    const MAX_VEL = 1.2;   
+    const MIN_VEL = 0.35;  
+
+    function getObstacles() {
+      const blocks = [];
+      const centerBox = document.getElementById('start-box');
+      if (centerBox && centerBox.style.display !== 'none') {
+        blocks.push(centerBox.getBoundingClientRect());
+      }
+      const btns = document.querySelectorAll('.btn');
+      btns.forEach(btn=>{
+        if (btn.offsetParent !== null) {
+          blocks.push(btn.getBoundingClientRect());
+        }
+      });
+      return blocks;
+    }
+
+    function isColliding(ax, ay, aw, ah, brect) {
+      return !(ax + aw < brect.left ||
+               ax > brect.right ||
+               ay + ah < brect.top ||
+               ay > brect.bottom);
+    }
+
+    function clampSpeed(v) {
+      if (Math.abs(v) > MAX_VEL) return Math.sign(v) * MAX_VEL;
+      if (Math.abs(v) < MIN_VEL) return Math.sign(v) * MIN_VEL;
+      return v;
+    }
+
+    function spawnFloatingImages() {
+      floatingImages.innerHTML = '';
+      floats = [];
+      const obstacles = getObstacles();
+      for(let i=0;i<NUM_IMAGES;i++) {
+        let img = document.createElement('img');
+        img.src = (i%2===0) ? '2.png' : '2.png';
+        img.className = 'floating-img';
+        let left, top, tries = 0;
+        do {
+          left = rand(0, window.innerWidth-70);
+          top = rand(0, window.innerHeight-70);
+          tries++;
+        } while(obstacles.some(rect => isColliding(left, top, 70, 70, rect)) && tries < 60);
+        img.style.left = left+'px';
+        img.style.top = top+'px';
+        let velX = rand(-MAX_VEL,MAX_VEL);
+        let velY = rand(-MAX_VEL,MAX_VEL);
+        if (Math.abs(velX) < MIN_VEL) velX = MIN_VEL * (Math.random()>0.5?1:-1);
+        if (Math.abs(velY) < MIN_VEL) velY = MIN_VEL * (Math.random()>0.5?1:-1);
+
+        floats.push({
+          el: img,
+          x: left,
+          y: top,
+          velX: velX,
+          velY: velY,
+        });
+        floatingImages.appendChild(img);
+      }
+    }
+
+    function animateFloating() {
+      const obstacles = getObstacles();
+      for(let obj of floats) {
+        obj.x += obj.velX;
+        obj.y += obj.velY;
+        obj.velX = clampSpeed(obj.velX);
+        obj.velY = clampSpeed(obj.velY);
+
+        if(obj.x < 0) { obj.x = 0; obj.velX *= -1; }
+        if(obj.x > window.innerWidth-70) { obj.x = window.innerWidth-70; obj.velX *= -1; }
+        if(obj.y < 0) { obj.y = 0; obj.velY *= -1; }
+        if(obj.y > window.innerHeight-70) { obj.y = window.innerHeight-70; obj.velY *= -1; }
+
+        for(let rect of obstacles) {
+          if(isColliding(obj.x,obj.y,70,70,rect)){
+           
+            if(obj.x+70>rect.left && obj.x<rect.right){
+              obj.velX = -obj.velX;
+              obj.x += obj.velX * 2;
+            }
+            if(obj.y+70>rect.top && obj.y<rect.bottom){
+              obj.velY = -obj.velY;
+              obj.y += obj.velY * 2;
+            }
+            obj.velX += rand(-0.08,0.08);
+            obj.velY += rand(-0.08,0.08);
+          }
+          obj.velX = clampSpeed(obj.velX);
+          obj.velY = clampSpeed(obj.velY);
+        }
+        obj.el.style.left=obj.x+'px';
+        obj.el.style.top=obj.y+'px';
+      }
+      requestAnimationFrame(animateFloating);
+    }
+
+    spawnFloatingImages();
+    animateFloating();
+    window.addEventListener('resize', spawnFloatingImages);
+
+    // Game Logic
+    const startBtn = document.getElementById('start-btn');
+    const startBox = document.getElementById('start-box');
+    const gameScene = document.getElementById('game-scene');
+    const catheImg = document.getElementById('cathe-img');
+    const timerDiv = document.getElementById('timer');
+    const gameoverModal = document.getElementById('gameover-modal');
+    const restartBtn = document.getElementById('restart-btn');
+
+    let timeLeft = 60, timerId = null, isPlaying = false, lastMoveTime = 0;
+
+    function showFlyText(x, y) {
+      const txt = document.createElement('div');
+      txt.className = 'fly-text';
+      txt.style.left = (x-44)+'px';
+      txt.style.top  = (y-12)+'px';
+      txt.textContent = pick(PHRASES);
+      document.body.appendChild(txt);
+      setTimeout(()=>txt.remove(),1200);
+    }
+
+    function moveCathe(fromMouseEvent) {
+      let prevX = catheImg.offsetLeft + 52;
+      let prevY = catheImg.offsetTop + 70;
+      let x = rand(40, window.innerWidth-150);
+      let y = rand(100, window.innerHeight-180);
+      catheImg.style.left = x+'px';
+      catheImg.style.top = y+'px';
+      if(fromMouseEvent) showFlyText(prevX, prevY);
+    }
+
+    function catheDodge(e) {
+      if (!isPlaying) return;
+      const mouseX = e.clientX, mouseY = e.clientY;
+      const catheRect = catheImg.getBoundingClientRect();
+      const centerX = catheRect.left + catheRect.width / 2;
+      const centerY = catheRect.top  + catheRect.height / 2;
+      const dist = Math.sqrt((mouseX-centerX)**2 + (mouseY-centerY)**2);
+      if (dist < 110 && Date.now()-lastMoveTime > 80) {
+        moveCathe(true);
+        lastMoveTime = Date.now();
+      }
+    }
+
+    function startGame() {
+      isPlaying = true;
+      startBox.style.display = 'none';
+      floatingImages.style.display = 'none';
+      gameScene.style.display = 'block';
+      timeLeft = 60;
+      timerDiv.textContent = "01:00";
+      moveCathe(false);
+      catheImg.style.display = 'block';
+      timerId = setInterval(() => {
+        timeLeft--;
+        let m = String(Math.floor(timeLeft/60)).padStart(2,'0');
+        let s = String(timeLeft%60).padStart(2,'0');
+        timerDiv.textContent = m+":"+s;
+        if(timeLeft<=0) endGame();
+      }, 1000);
+      document.addEventListener('mousemove', catheDodge);
+    }
+    function endGame() {
+      isPlaying = false;
+      clearInterval(timerId);
+      catheImg.style.display = 'none';
+      gameoverModal.style.display = 'block';
+      document.removeEventListener('mousemove', catheDodge);
+    }
+    function restartGame() {
+      gameoverModal.style.display = 'none';
+      gameScene.style.display = 'none';
+      floatingImages.style.display = '';
+      startBox.style.display = '';
+      spawnFloatingImages();
+    }
+
+    startBtn.onclick = startGame;
+    restartBtn.onclick = restartGame;
+  </script>
+</body>
+</html>
+
+
